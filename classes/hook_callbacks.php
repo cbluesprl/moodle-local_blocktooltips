@@ -21,7 +21,7 @@ use core\hook\output\before_footer_html_generation;
 /**
  * Hook callbacks for local_blocktooltips.
  *
- * Injects the AMD module that adds tooltips to the "Add a block" modal.
+ * Injects AMD modules for block tooltips and student visibility toggle.
  *
  * @package   local_blocktooltips
  * @copyright CBlue SRL, support@cblue.be
@@ -30,11 +30,10 @@ use core\hook\output\before_footer_html_generation;
 class hook_callbacks {
 
     /**
-     * Inject the block tooltips AMD module before footer rendering.
+     * Inject AMD modules before footer rendering.
      *
-     * Only loads if the user is in editing mode and has the capability
-     * to manage blocks, since those are the conditions to see the
-     * "Add a block" modal.
+     * Loads the tooltip module and the student visibility toggle module
+     * when the user is in editing mode with appropriate capabilities.
      *
      * @param before_footer_html_generation $hook
      */
@@ -51,18 +50,25 @@ class hook_callbacks {
             return;
         }
 
-        // Collect all tooltip descriptions from plugin settings.
+        // Tooltip feature: inject tooltip data for the "Add a block" modal.
         $tooltips = self::get_tooltips();
-        if (empty($tooltips)) {
-            return;
+        if (!empty($tooltips)) {
+            $PAGE->requires->js_call_amd(
+                'local_blocktooltips/block_tooltips',
+                'init',
+                [$tooltips]
+            );
         }
 
-        // Pass tooltip data directly to the AMD module (no extra AJAX needed).
-        $PAGE->requires->js_call_amd(
-            'local_blocktooltips/block_tooltips',
-            'init',
-            [$tooltips]
-        );
+        // Student visibility toggle: inject eye icon on each block.
+        if (has_capability('moodle/role:override', $context)) {
+            $hiddenblocks = self::get_hidden_block_instances();
+            $PAGE->requires->js_call_amd(
+                'local_blocktooltips/student_visibility',
+                'init',
+                [$hiddenblocks]
+            );
+        }
     }
 
     /**
@@ -82,5 +88,39 @@ class hook_callbacks {
         }
 
         return $tooltips;
+    }
+
+    /**
+     * Get block instance IDs that are hidden for students.
+     *
+     * Queries role_capabilities for any block context where the student or
+     * authenticated user role has a CAP_PREVENT override on moodle/block:view.
+     *
+     * @return array List of block instance IDs hidden for students.
+     */
+    public static function get_hidden_block_instances(): array {
+        global $DB;
+
+        $roles = \local_blocktooltips\external\toggle_student_visibility::get_target_roles();
+        if (empty($roles)) {
+            return [];
+        }
+
+        $roleids = array_keys($roles);
+        list($insql, $params) = $DB->get_in_or_equal($roleids, SQL_PARAMS_NAMED, 'role');
+
+        $params['capability'] = 'moodle/block:view';
+        $params['permission'] = CAP_PREVENT;
+        $params['contextlevel'] = CONTEXT_BLOCK;
+
+        // Find all block contexts where any target role has CAP_PREVENT on moodle/block:view.
+        $sql = "SELECT DISTINCT ctx.instanceid
+                  FROM {role_capabilities} rc
+                  JOIN {context} ctx ON ctx.id = rc.contextid AND ctx.contextlevel = :contextlevel
+                 WHERE rc.roleid {$insql}
+                   AND rc.capability = :capability
+                   AND rc.permission = :permission";
+
+        return array_values(array_map('intval', $DB->get_fieldset_sql($sql, $params)));
     }
 }
