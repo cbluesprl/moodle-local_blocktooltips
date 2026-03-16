@@ -29,5 +29,4 @@ $string['settings:tooltip_for'] = 'Tooltip for "{$a}"';
 $string['settings:tooltip_for_desc'] = 'Description shown as a tooltip when adding this block.';
 $string['hiddenforstudents'] = 'Hidden for students';
 $string['visibleforstudents'] = 'Visible for students';
-$string['nostudentrolefound'] = 'No student role found in the system.';
 $string['privacy:metadata'] = 'The block tooltips plugin does not store any personal data.';

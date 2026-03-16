@@ -21,7 +21,7 @@ use core\hook\output\before_footer_html_generation;
 /**
  * Hook callbacks for local_blocktooltips.
  *
- * Injects AMD modules for block tooltips and student visibility toggle.
+ * Injects AMD modules for block tooltips and student visibility indicator.
  *
  * @package   local_blocktooltips
  * @copyright CBlue SRL, support@cblue.be
@@ -32,7 +32,7 @@ class hook_callbacks {
     /**
      * Inject AMD modules before footer rendering.
      *
-     * Loads the tooltip module and the student visibility toggle module
+     * Loads the tooltip module and the student visibility indicator module
      * when the user is in editing mode with appropriate capabilities.
      *
      * @param before_footer_html_generation $hook
@@ -60,15 +60,13 @@ class hook_callbacks {
             );
         }
 
-        // Student visibility toggle: inject eye icon on each block.
-        if (has_capability('moodle/role:override', $context)) {
-            $hiddenblocks = self::get_hidden_block_instances();
-            $PAGE->requires->js_call_amd(
-                'local_blocktooltips/student_visibility',
-                'init',
-                [$hiddenblocks]
-            );
-        }
+        // Student visibility indicator: display eye icon on each block.
+        $hiddenblocks = self::get_hidden_block_instances();
+        $PAGE->requires->js_call_amd(
+            'local_blocktooltips/student_visibility',
+            'init',
+            [$hiddenblocks]
+        );
     }
 
     /**
@@ -93,33 +91,36 @@ class hook_callbacks {
     /**
      * Get block instance IDs that are hidden for students.
      *
-     * Queries role_capabilities for any block context where the student or
-     * authenticated user role has a CAP_PREVENT override on moodle/block:view.
+     * Checks moodle/block:view for the student role at block context level.
+     * A block is considered hidden if the student role has a CAP_PREVENT
+     * or CAP_PROHIBIT override on moodle/block:view.
      *
      * @return array List of block instance IDs hidden for students.
      */
     public static function get_hidden_block_instances(): array {
         global $DB;
 
-        $roles = \local_blocktooltips\external\toggle_student_visibility::get_target_roles();
-        if (empty($roles)) {
+        $studentroles = get_archetype_roles('student');
+        if (empty($studentroles)) {
             return [];
         }
 
-        $roleids = array_keys($roles);
-        list($insql, $params) = $DB->get_in_or_equal($roleids, SQL_PARAMS_NAMED, 'role');
+        $studentrole = reset($studentroles);
 
-        $params['capability'] = 'moodle/block:view';
-        $params['permission'] = CAP_PREVENT;
-        $params['contextlevel'] = CONTEXT_BLOCK;
-
-        // Find all block contexts where any target role has CAP_PREVENT on moodle/block:view.
         $sql = "SELECT DISTINCT ctx.instanceid
                   FROM {role_capabilities} rc
                   JOIN {context} ctx ON ctx.id = rc.contextid AND ctx.contextlevel = :contextlevel
-                 WHERE rc.roleid {$insql}
+                 WHERE rc.roleid = :roleid
                    AND rc.capability = :capability
-                   AND rc.permission = :permission";
+                   AND rc.permission IN (:prevent, :prohibit)";
+
+        $params = [
+            'roleid' => $studentrole->id,
+            'capability' => 'moodle/block:view',
+            'contextlevel' => CONTEXT_BLOCK,
+            'prevent' => CAP_PREVENT,
+            'prohibit' => CAP_PROHIBIT,
+        ];
 
         return array_values(array_map('intval', $DB->get_fieldset_sql($sql, $params)));
     }

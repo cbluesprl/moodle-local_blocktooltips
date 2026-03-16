@@ -29,5 +29,4 @@ $string['settings:tooltip_for'] = 'Infobulle pour « {$a} »';
 $string['settings:tooltip_for_desc'] = 'Description affichée sous forme d\'infobulle lors de l\'ajout de ce bloc.';
 $string['hiddenforstudents'] = 'Masqué pour les étudiants';
 $string['visibleforstudents'] = 'Affiché pour les étudiants';
-$string['nostudentrolefound'] = 'Aucun rôle étudiant trouvé dans le système.';
 $string['privacy:metadata'] = 'Le plugin Infobulles des blocs ne stocke aucune donnée personnelle.';

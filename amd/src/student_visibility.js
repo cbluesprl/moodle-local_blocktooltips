@@ -14,10 +14,8 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Adds an eye toggle icon on each block to hide/show the block for students.
- *
- * The icon is placed next to the existing block controls (move, 3-dot menu).
- * It toggles the moodle/block:view capability for the student role via AJAX.
+ * Displays a read-only eye icon on each block indicating whether the block
+ * is visible or hidden for students (based on moodle/block:view permissions).
  *
  * @module     local_blocktooltips/student_visibility
  * @copyright  CBlue SRL, support@cblue.be
@@ -25,102 +23,45 @@
  */
 
 import $ from 'jquery';
-import Ajax from 'core/ajax';
 import {get_string as getString} from 'core/str';
 
 /** @var {Set} hiddenBlockIds Set of block instance IDs hidden for students */
 let hiddenBlockIds = new Set();
 
 /**
- * Create the eye toggle icon element for a block.
+ * Create the read-only eye indicator icon for a block.
  *
- * @param {number} instanceId The block instance ID.
  * @param {boolean} isHidden Whether the block is currently hidden for students.
- * @returns {HTMLElement} The eye icon button element.
+ * @returns {Promise<HTMLElement>} The eye icon element.
  */
-const createEyeIcon = async(instanceId, isHidden) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'local-blocktooltips-visibility btn btn-link p-0 border-0';
-    btn.dataset.instanceId = instanceId;
-    btn.dataset.action = 'toggle-student-visibility';
-
-    await updateEyeIcon(btn, isHidden);
-
-    btn.addEventListener('click', handleToggleClick);
-
-    return btn;
-};
-
-/**
- * Update the eye icon appearance based on visibility state.
- *
- * @param {HTMLElement} btn The button element.
- * @param {boolean} isHidden Whether the block is hidden for students.
- */
-const updateEyeIcon = async(btn, isHidden) => {
+const createEyeIcon = async(isHidden) => {
     const titleStr = isHidden
         ? await getString('hiddenforstudents', 'local_blocktooltips')
         : await getString('visibleforstudents', 'local_blocktooltips');
 
-    btn.innerHTML = '';
+    const icon = document.createElement('span');
+    icon.className = 'local-blocktooltips-visibility d-inline-block';
+    icon.setAttribute('data-toggle', 'tooltip');
+    icon.setAttribute('data-placement', 'bottom');
+    icon.setAttribute('title', titleStr);
+    icon.setAttribute('role', 'img');
+    icon.setAttribute('aria-label', titleStr);
 
-    const icon = document.createElement('i');
-    if (isHidden) {
-        icon.className = 'fa fa-eye-slash text-danger';
-    } else {
-        icon.className = 'fa fa-eye text-success';
-    }
-    icon.setAttribute('aria-hidden', 'true');
+    const i = document.createElement('i');
+    i.className = isHidden
+        ? 'fa fa-eye-slash text-danger'
+        : 'fa fa-eye text-success';
+    i.setAttribute('aria-hidden', 'true');
 
-    btn.appendChild(icon);
-    btn.setAttribute('title', titleStr);
-    btn.setAttribute('aria-label', titleStr);
+    icon.appendChild(i);
 
-    // Refresh Bootstrap tooltip.
-    $(btn).tooltip('dispose');
-    $(btn).tooltip({container: 'body'});
+    $(icon).tooltip({container: 'body'});
+
+    return icon;
 };
 
 /**
- * Handle click on the eye toggle icon.
- *
- * @param {Event} e The click event.
- */
-const handleToggleClick = async(e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const btn = e.currentTarget;
-    const instanceId = parseInt(btn.dataset.instanceId, 10);
-
-    // Disable button during request.
-    btn.disabled = true;
-    btn.style.opacity = '0.5';
-
-    try {
-        const result = await Ajax.call([{
-            methodname: 'local_blocktooltips_toggle_student_visibility',
-            args: {blockinstanceid: instanceId},
-        }])[0];
-
-        if (result.hiddenforstudents) {
-            hiddenBlockIds.add(instanceId);
-        } else {
-            hiddenBlockIds.delete(instanceId);
-        }
-
-        await updateEyeIcon(btn, result.hiddenforstudents);
-    } catch (err) {
-        window.console.error('Error toggling student visibility:', err);
-    } finally {
-        btn.disabled = false;
-        btn.style.opacity = '';
-    }
-};
-
-/**
- * Inject eye icons into all block control areas on the page.
+ * Inject eye indicator icons into all block control areas on the page.
  */
 const injectEyeIcons = async() => {
     const blocks = document.querySelectorAll('[data-instance-id]');
@@ -137,25 +78,25 @@ const injectEyeIcons = async() => {
         }
 
         // Skip if already processed.
-        if (controlsDiv.querySelector('[data-action="toggle-student-visibility"]')) {
+        if (controlsDiv.querySelector('.local-blocktooltips-visibility')) {
             continue;
         }
 
         const isHidden = hiddenBlockIds.has(instanceId);
-        const eyeBtn = await createEyeIcon(instanceId, isHidden);
+        const eyeIcon = await createEyeIcon(isHidden);
 
-        // Insert the eye icon as the first child of block-controls (before move/3-dots).
+        // Insert before the action menu.
         const actionMenu = controlsDiv.querySelector('.action-menu');
         if (actionMenu) {
-            actionMenu.parentNode.insertBefore(eyeBtn, actionMenu);
+            actionMenu.parentNode.insertBefore(eyeIcon, actionMenu);
         } else {
-            controlsDiv.prepend(eyeBtn);
+            controlsDiv.prepend(eyeIcon);
         }
     }
 };
 
 /**
- * Initialize the student visibility module.
+ * Initialize the student visibility indicator module.
  *
  * @param {Array} hiddenIds Array of block instance IDs currently hidden for students.
  */
