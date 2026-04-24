@@ -60,13 +60,17 @@ class hook_callbacks {
             );
         }
 
-        // Student visibility indicator: display eye icon on each block.
-        $hiddenblocks = self::get_hidden_block_instances();
-        $PAGE->requires->js_call_amd(
-            'local_blocktooltips/student_visibility',
-            'init',
-            [$hiddenblocks]
-        );
+        // Student visibility indicator: restricted to course contexts.
+        // On /my, user profiles, etc. each user has their own blocks, so the
+        // indicator cannot reliably answer "what does a student see".
+        if ((int) $context->contextlevel === CONTEXT_COURSE) {
+            $hiddenblocks = self::get_hidden_block_instances();
+            $PAGE->requires->js_call_amd(
+                'local_blocktooltips/student_visibility',
+                'init',
+                [$hiddenblocks]
+            );
+        }
     }
 
     /**
@@ -89,39 +93,203 @@ class hook_callbacks {
     }
 
     /**
-     * Get block instance IDs that are hidden for students.
+     * Get block instance IDs that are hidden for students on the current page.
      *
-     * Checks moodle/block:view for the student role at block context level.
-     * A block is considered hidden if the student role has a CAP_PREVENT
-     * or CAP_PROHIBIT override on moodle/block:view.
+     * Reproduces Moodle's rendering-time visibility logic by simulating a
+     * representative student user. For every block instance rendered on the
+     * page, the block is considered hidden for students when any of these
+     * checks fail:
+     *   - moodle/block:view capability in the block context hierarchy,
+     *   - applicable_formats() match with the current page type,
+     *   - block_positions.visible flag on this page,
+     *   - block has non-empty content (get_content / is_empty) when run as
+     *     the student; this catches blocks whose content is capability-gated
+     *     (e.g. mrtestcoursecreation, configurable_reports) or whose parent
+     *     context is a user context the student would not share.
      *
      * @return array List of block instance IDs hidden for students.
      */
     public static function get_hidden_block_instances(): array {
-        global $DB;
+        global $DB, $PAGE, $USER;
+
+        if (!isloggedin() || isguestuser()) {
+            return [];
+        }
 
         $studentroles = get_archetype_roles('student');
         if (empty($studentroles)) {
             return [];
         }
-
         $studentrole = reset($studentroles);
 
-        $sql = "SELECT DISTINCT ctx.instanceid
-                  FROM {role_capabilities} rc
-                  JOIN {context} ctx ON ctx.id = rc.contextid AND ctx.contextlevel = :contextlevel
-                 WHERE rc.roleid = :roleid
-                   AND rc.capability = :capability
-                   AND rc.permission IN (:prevent, :prohibit)";
+        $studentuser = self::get_representative_student_user($PAGE->context, (int) $studentrole->id);
+        if (!$studentuser) {
+            return [];
+        }
 
-        $params = [
-            'roleid' => $studentrole->id,
-            'capability' => 'moodle/block:view',
-            'contextlevel' => CONTEXT_BLOCK,
-            'prevent' => CAP_PREVENT,
-            'prohibit' => CAP_PROHIBIT,
-        ];
+        $instances = self::get_page_block_instances($PAGE);
+        if (empty($instances)) {
+            return [];
+        }
 
-        return array_values(array_map('intval', $DB->get_fieldset_sql($sql, $params)));
+        $pagetype = $PAGE->pagetype;
+        $subpage = (string) ($PAGE->subpage ?? '');
+        $contextid = (int) $PAGE->context->id;
+
+        [$insql, $inparams] = $DB->get_in_or_equal(array_keys($instances), SQL_PARAMS_NAMED, 'bi');
+        $positions = $DB->get_records_sql(
+            "SELECT blockinstanceid, visible
+               FROM {block_positions}
+              WHERE blockinstanceid $insql
+                AND contextid = :ctx
+                AND pagetype = :pt
+                AND subpage = :sp",
+            array_merge($inparams, ['ctx' => $contextid, 'pt' => $pagetype, 'sp' => $subpage])
+        );
+
+        $hidden = [];
+        $saveduser = $USER;
+
+        try {
+            \core\session\manager::set_user($studentuser);
+
+            foreach ($instances as $instance) {
+                try {
+                    $blockcontext = \context_block::instance($instance->id);
+                } catch (\Throwable $e) {
+                    continue;
+                }
+
+                if (!has_capability('moodle/block:view', $blockcontext)) {
+                    $hidden[] = (int) $instance->id;
+                    continue;
+                }
+
+                if (!blocks_name_allowed_in_format($instance->blockname, $pagetype)) {
+                    $hidden[] = (int) $instance->id;
+                    continue;
+                }
+
+                if (isset($positions[$instance->id]) && (int) $positions[$instance->id]->visible === 0) {
+                    $hidden[] = (int) $instance->id;
+                    continue;
+                }
+
+                if (self::block_is_empty_for_student($instance, $PAGE)) {
+                    $hidden[] = (int) $instance->id;
+                    continue;
+                }
+            }
+        } finally {
+            \core\session\manager::set_user($saveduser);
+        }
+
+        return array_values(array_unique($hidden));
+    }
+
+    /**
+     * Collect block instances already loaded on the current page, so the
+     * indicator matches exactly the DOM [data-instance-id] elements targeted
+     * by the AMD module.
+     *
+     * @param \moodle_page $page
+     * @return array Instance records keyed by id.
+     */
+    protected static function get_page_block_instances(\moodle_page $page): array {
+        $instances = [];
+
+        try {
+            $regions = $page->blocks->get_regions();
+        } catch (\Throwable $e) {
+            return [];
+        }
+
+        foreach ($regions as $region) {
+            try {
+                $blocks = $page->blocks->get_blocks_for_region($region);
+            } catch (\Throwable $e) {
+                continue;
+            }
+
+            foreach ($blocks as $blockobj) {
+                if (!($blockobj instanceof \block_base)) {
+                    continue;
+                }
+                if (empty($blockobj->instance) || empty($blockobj->instance->id)) {
+                    continue;
+                }
+                $instances[(int) $blockobj->instance->id] = $blockobj->instance;
+            }
+        }
+
+        return $instances;
+    }
+
+    /**
+     * Instantiate a fresh block object and ask it whether it would render as
+     * empty — Moodle hides empty blocks from non-editing users, so an empty
+     * block effectively means "invisible to students".
+     *
+     * Uses a fresh block_instance so we do not pollute the admin's already
+     * rendered block objects or their cached content.
+     *
+     * @param \stdClass $instance Row-like object from block_instances.
+     * @param \moodle_page $page
+     * @return bool
+     */
+    protected static function block_is_empty_for_student(\stdClass $instance, \moodle_page $page): bool {
+        try {
+            $freshinstance = clone $instance;
+            if (!isset($freshinstance->visible)) {
+                $freshinstance->visible = 1;
+            }
+            if (!isset($freshinstance->blockpositionid)) {
+                $freshinstance->blockpositionid = null;
+            }
+
+            $blockobj = block_instance($instance->blockname, $freshinstance, $page);
+            if (!$blockobj) {
+                return false;
+            }
+
+            return (bool) $blockobj->is_empty();
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Pick an active, non-deleted, non-siteadmin user holding the student
+     * archetype role in the current context hierarchy.
+     *
+     * @param \context $context
+     * @param int $studentroleid
+     * @return \stdClass|null
+     */
+    protected static function get_representative_student_user(\context $context, int $studentroleid): ?\stdClass {
+        $users = get_role_users(
+            $studentroleid,
+            $context,
+            true,
+            'u.id',
+            'u.id ASC',
+            false,
+            '',
+            0,
+            25,
+            'u.deleted = 0 AND u.suspended = 0 AND u.confirmed = 1'
+        );
+
+        foreach ($users as $user) {
+            if (is_siteadmin($user->id)) {
+                continue;
+            }
+            $full = \core_user::get_user($user->id, '*', IGNORE_MISSING);
+            if ($full && empty($full->deleted) && empty($full->suspended)) {
+                return $full;
+            }
+        }
+
+        return null;
     }
 }
