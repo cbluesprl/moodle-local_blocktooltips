@@ -24,6 +24,7 @@
 
 import $ from 'jquery';
 import {get_string as getString} from 'core/str';
+import Log from 'core/log';
 
 /** @var {Set} hiddenBlockIds Set of block instance IDs hidden for students */
 let hiddenBlockIds = new Set();
@@ -41,8 +42,8 @@ const createEyeIcon = async(isHidden) => {
 
     const icon = document.createElement('span');
     icon.className = 'local-blocktooltips-visibility d-inline-block';
-    icon.setAttribute('data-toggle', 'tooltip');
-    icon.setAttribute('data-placement', 'bottom');
+    icon.setAttribute('data-bs-toggle', 'tooltip');
+    icon.setAttribute('data-bs-placement', 'bottom');
     icon.setAttribute('title', titleStr);
     icon.setAttribute('role', 'img');
     icon.setAttribute('aria-label', titleStr);
@@ -102,5 +103,8 @@ const injectEyeIcons = async() => {
  */
 export const init = (hiddenIds) => {
     hiddenBlockIds = new Set(hiddenIds || []);
-    injectEyeIcons();
+    injectEyeIcons().catch((e) => {
+        Log.error('local_blocktooltips/student_visibility: failed to inject icons');
+        Log.error(e);
+    });
 };

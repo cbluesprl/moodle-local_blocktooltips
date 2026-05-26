@@ -50,9 +50,9 @@ const injectTooltips = (container) => {
 
         const icon = document.createElement('i');
         icon.className = 'local-blocktooltips-icon fa fa-info-circle text-info ml-2';
-        icon.setAttribute('data-toggle', 'tooltip');
-        icon.setAttribute('data-placement', 'right');
-        icon.setAttribute('data-html', 'false');
+        icon.setAttribute('data-bs-toggle', 'tooltip');
+        icon.setAttribute('data-bs-placement', 'right');
+        icon.setAttribute('data-bs-html', 'false');
         icon.setAttribute('title', tooltips[blockname]);
         icon.setAttribute('tabindex', '0');
         icon.setAttribute('role', 'img');
