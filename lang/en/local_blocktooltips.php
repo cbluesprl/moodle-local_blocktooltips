@@ -22,11 +22,11 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+$string['hiddenforstudents'] = 'Hidden for students';
 $string['pluginname'] = 'Block tooltips';
+$string['privacy:metadata'] = 'The block tooltips plugin does not store any personal data.';
 $string['settings:heading'] = 'Block tooltip descriptions';
 $string['settings:heading_desc'] = 'Enter a short description for each block. This text will be displayed as a tooltip in the "Add a block" popup.';
 $string['settings:tooltip_for'] = 'Tooltip for "{$a}"';
 $string['settings:tooltip_for_desc'] = 'Description shown as a tooltip when adding this block.';
-$string['hiddenforstudents'] = 'Hidden for students';
 $string['visibleforstudents'] = 'Visible for students';
-$string['privacy:metadata'] = 'The block tooltips plugin does not store any personal data.';

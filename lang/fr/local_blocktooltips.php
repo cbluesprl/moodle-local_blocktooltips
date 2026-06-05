@@ -22,11 +22,11 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+$string['hiddenforstudents'] = 'Masqué pour les étudiants';
 $string['pluginname'] = 'Infobulles des blocs';
+$string['privacy:metadata'] = 'Le plugin Infobulles des blocs ne stocke aucune donnée personnelle.';
 $string['settings:heading'] = 'Descriptions des infobulles de blocs';
 $string['settings:heading_desc'] = 'Saisissez une courte description pour chaque bloc. Ce texte sera affiché sous forme d\'infobulle dans la popup « Ajouter un bloc ».';
 $string['settings:tooltip_for'] = 'Infobulle pour « {$a} »';
 $string['settings:tooltip_for_desc'] = 'Description affichée sous forme d\'infobulle lors de l\'ajout de ce bloc.';
-$string['hiddenforstudents'] = 'Masqué pour les étudiants';
 $string['visibleforstudents'] = 'Affiché pour les étudiants';
-$string['privacy:metadata'] = 'Le plugin Infobulles des blocs ne stocke aucune donnée personnelle.';

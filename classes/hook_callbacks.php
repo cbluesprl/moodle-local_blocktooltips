@@ -28,7 +28,6 @@ use core\hook\output\before_footer_html_generation;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class hook_callbacks {
-
     /**
      * Inject AMD modules before footer rendering.
      *

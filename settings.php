@@ -27,7 +27,6 @@
 defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig) {
-
     $settings = new admin_settingpage(
         'local_blocktooltips_settings',
         get_string('pluginname', 'local_blocktooltips'),
