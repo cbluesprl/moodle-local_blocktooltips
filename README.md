@@ -102,6 +102,15 @@ phpcs --standard=moodle local/blocktooltips/        # via local_codechecker
 php local/moodlecheck/cli/moodlecheck.php --path=local/blocktooltips
 ```
 
+## Bug tracker and support
+
+Please report bugs and feature requests through the GitHub issue tracker:
+
+- **Issues / bug tracker:** <https://github.com/cbluesprl/moodle-local_blocktooltips/issues>
+- **Source code:** <https://github.com/cbluesprl/moodle-local_blocktooltips>
+
+For private enquiries, contact CBlue SRL at <support@cblue.be>.
+
 ## License
 
 This program is free software: you can redistribute it and/or modify it under the
