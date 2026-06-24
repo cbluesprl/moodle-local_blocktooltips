@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: CBlue support
+    url: mailto:support@cblue.be
+    about: For private enquiries not suitable for a public issue.
