@@ -47,8 +47,16 @@ Student visibility indicator on course blocks (visible vs hidden):
 ## Requirements
 
 - Moodle 4.5 (build `2024100700`) or later.
-- Supported branches: Moodle 4.5 → 5.0 (`[405, 500]`).
 - Tested with PHP 8.2.
+
+This plugin is maintained on per-version branches, matching Moodle's own branch
+naming:
+
+| Branch | Moodle |
+|--------|--------|
+| `MOODLE_405_STABLE` | 4.5 |
+| `MOODLE_500_STABLE` | 5.0 |
+| `MOODLE_501_STABLE` | 5.1 |
 
 ## Installation
 
