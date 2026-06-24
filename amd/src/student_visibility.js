@@ -22,7 +22,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-import $ from 'jquery';
 import {get_string as getString} from 'core/str';
 import Log from 'core/log';
 
@@ -42,7 +41,13 @@ const createEyeIcon = async(isHidden) => {
 
     const icon = document.createElement('span');
     icon.className = 'local-blocktooltips-visibility d-inline-block';
+    // Set both the Bootstrap 4 (data-*) and Bootstrap 5 (data-bs-*) attributes so the
+    // theme's delegated tooltip initialisation works on Moodle 4.x and 5.x. We do not
+    // init via jQuery because Bootstrap 5 (Moodle 5.0) dropped the jQuery plugin and
+    // $(icon).tooltip() would throw; the "title" attribute is a graceful fallback.
+    icon.setAttribute('data-toggle', 'tooltip');
     icon.setAttribute('data-bs-toggle', 'tooltip');
+    icon.setAttribute('data-placement', 'bottom');
     icon.setAttribute('data-bs-placement', 'bottom');
     icon.setAttribute('title', titleStr);
     icon.setAttribute('role', 'img');
@@ -55,8 +60,6 @@ const createEyeIcon = async(isHidden) => {
     i.setAttribute('aria-hidden', 'true');
 
     icon.appendChild(i);
-
-    $(icon).tooltip({container: 'body'});
 
     return icon;
 };

@@ -25,8 +25,6 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-import $ from 'jquery';
-
 /** @var {Object} tooltips Associative object of blockname => description */
 let tooltips = {};
 
@@ -49,9 +47,20 @@ const injectTooltips = (container) => {
         }
 
         const icon = document.createElement('i');
-        icon.className = 'local-blocktooltips-icon fa fa-info-circle text-info ml-2';
+        // "ml-*" are Bootstrap 4 spacing utilities and "ms-*" their Bootstrap 5
+        // equivalents; include both so the icon is spaced on Moodle 4.x and 5.x.
+        icon.className = 'local-blocktooltips-icon fa fa-info-circle text-info ml-2 ms-2';
+        // Set both the Bootstrap 4 (data-*) and Bootstrap 5 (data-bs-*) attributes so
+        // the theme's delegated tooltip initialisation picks the element up on either
+        // version. We intentionally do not initialise the tooltip via jQuery: the
+        // Bootstrap 5 build shipped with Moodle 5.0 no longer exposes the jQuery
+        // plugin, so $(icon).tooltip() would throw. The plain "title" attribute also
+        // acts as a graceful fallback (native browser tooltip) if nothing binds it.
+        icon.setAttribute('data-toggle', 'tooltip');
         icon.setAttribute('data-bs-toggle', 'tooltip');
+        icon.setAttribute('data-placement', 'right');
         icon.setAttribute('data-bs-placement', 'right');
+        icon.setAttribute('data-html', 'false');
         icon.setAttribute('data-bs-html', 'false');
         icon.setAttribute('title', tooltips[blockname]);
         icon.setAttribute('tabindex', '0');
@@ -68,9 +77,6 @@ const injectTooltips = (container) => {
         link.style.justifyContent = 'space-between';
         link.style.alignItems = 'center';
         link.appendChild(icon);
-
-        // Initialize Bootstrap tooltip on the icon.
-        $(icon).tooltip({container: 'body'});
     });
 };
 
